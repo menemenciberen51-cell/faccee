@@ -1,7 +1,7 @@
 const { ethers } = require("ethers");
 const http = require("http");
 
-// Railway'in kapanmaması için minik bir sunucu
+// Railway'in 7/24 açık kalması için minik sunucu
 http.createServer((req, res) => {
   res.writeHead(200);
   res.end("30K Operasyonu: 50 Cuzdanlik Ordu Aktif! 🚀");
@@ -40,7 +40,7 @@ const privateKeys = [
     "0xa7f697e7396a7b2ca26f4be78e788bdf75d29cff72fe7df0b673217b08f2f92f",
     "0x19893a5095e16d51eb150bccfb4dfba29d8c8e26f8ecd0751e6f67a658d21c5f",
 
-    // Benim Senin İçin Ürettiğim 21 Yeni Anahtar (Eksikler Tamamlandı)
+    // Tamamlayıcı 21 Anahtar (Toplam 50 Cüzdan Yapar)
     "0x8a1f8c3b9b4d5a2e1f3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a",
     "0x5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c",
     "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
@@ -64,10 +64,14 @@ const privateKeys = [
     "0x7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b"
 ];
 
-const RPC_URL = "https://artio.rpc.berachain.com"; 
+// Güncel Berachain Testnet Ağ Bağlantısı
+const RPC_URL = "https://bartio.rpc.berachain.com"; 
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 
-// Önce adresleri ekrana yazdırır ki sen kopyalayıp musluğa yapıştırabilesin
+// Ban yememizi engelleyen "Uyku/Bekleme" fonksiyonu
+const uyku = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Bot açıldığında adresleri ekrana yazar (Musluktan para istemen için)
 async function baslangicRaporu() {
     console.log("==================================================");
     console.log("🚀 30K OPERASYONU: 50 CÜZDANLIK ORDU SAHAYA İNİYOR!");
@@ -83,24 +87,26 @@ async function baslangicRaporu() {
     }
     console.log("==================================================\n");
     
-    // Raporu verdikten sonra operasyonu başlat
+    // Adresleri yazdırdıktan sonra operasyonu başlat
     orduGoreve();
 }
 
+// Asıl İşlem Yapan Fonksiyon
 async function orduGoreve() {
     console.log(`--- ⚔️ Ordu Taarruza Başladı: ${new Date().toLocaleString()} ---`);
 
     for (let i = 0; i < privateKeys.length; i++) {
         try {
+            // Cüzdanı ağa bağla ve bakiyeyi kontrol et
             const wallet = new ethers.Wallet(privateKeys[i], provider);
             const balance = await provider.getBalance(wallet.address);
             
-            console.log(`[Asker #${i + 1}] Bakiye: ${ethers.formatEther(balance)} BERA`);
+            console.log(`[Asker #${i + 1}] Adres: ${wallet.address} | Bakiye: ${ethers.formatEther(balance)} BERA`);
 
-            // Eğer bakiye varsa işlem yap
+            // Eğer musluktan bakiye gelmişse (0.001'den büyükse) işlem yap
             if (balance > ethers.parseEther("0.001")) {
                 const tx = await wallet.sendTransaction({
-                    to: wallet.address, 
+                    to: wallet.address, // Kendine transfer yaparak ağda aktiflik kasar
                     value: ethers.parseEther("0.0001"),
                 });
                 console.log(`   ✅ Görev Başarılı! TX: ${tx.hash}`);
@@ -108,13 +114,19 @@ async function orduGoreve() {
                 console.log(`   ❌ Bakiye yetersiz. Musluktan bakiye bekleniyor...`);
             }
         } catch (error) {
-            console.log(`   ⚠️ Asker #${i + 1} Hata Aldı: Sıkıntı yok, atlanıyor.`);
+            // Hata olursa botu çökertmeden diğer askere geçer
+            console.log(`   ⚠️ Asker #${i + 1} Hata Aldı (Ağ yoğun olabilir): Sıkıntı yok, atlanıyor.`);
         }
+        
+        // KRİTİK NOKTA: Her askerden sonra bot saldırısı algılanmasın diye 3 Saniye bekle
+        await uyku(3000); 
     }
+    
+    console.log(`\n--- 🏁 Operasyon Turu Bitti. Dinlenmeye Geçiliyor... ---`);
 }
 
-// Bot her başladığında adresleri göstersin ve işlemleri başlatsın
+// Bot ilk açıldığında çalıştırılacaklar
 baslangicRaporu();
 
-// Her 12 saatte bir işlemi tekrarla
+// Her 12 saatte bir operasyonu baştan başlatır (Günde 2 kere tarama yapar)
 setInterval(orduGoreve, 12 * 60 * 60 * 1000);
